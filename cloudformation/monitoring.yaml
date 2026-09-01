@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Multi-AZ Network Reliability Simulator - Monitoring & Auto-Remediation Layer
+  CloudWatch Alarm on unhealthy targets -> SNS -> Lambda forces ECS redeploy
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: nrs
+
+  ComputeProjectName:
+    Type: String
+    Default: nrs
+    Description: >
+      Value of the ProjectName parameter used when deploying compute.yaml
+      (exports are named after ProjectName, not the CloudFormation stack name)
+
+  AlertEmail:
+    Type: String
+    Description: Email address to notify on alarm (optional but recommended)
+
+  UnhealthyHostThreshold:
+    Type: Number
+    Default: 2
+    Description: Number of unhealthy hosts that triggers the alarm
+
+Resources:
+
+  # ---------- SNS ----------
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-alerts
+
+  EmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  # ---------- CloudWatch Alarm ----------
+  UnhealthyHostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-unhealthy-hosts
+      AlarmDescription: Triggers when ALB reports unhealthy targets
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value:
+            Fn::Select:
+              - 5
+              - Fn::Split:
+                  - ':'
+                  - Fn::ImportValue: !Sub ${ComputeProjectName}-tg-arn
+        - Name: LoadBalancer
+          Value:
+            Fn::Join:
+              - '/'
+              - - Fn::Select:
+                    - 1
+                    - Fn::Split:
+                        - '/'
+                        - Fn::Select:
+                            - 5
+                            - Fn::Split:
+                                - ':'
+                                - Fn::ImportValue: !Sub ${ComputeProjectName}-alb-arn
+                - Fn::Select:
+                    - 2
+                    - Fn::Split:
+                        - '/'
+                        - Fn::Select:
+                            - 5
+                            - Fn::Split:
+                                - ':'
+                                - Fn::ImportValue: !Sub ${ComputeProjectName}-alb-arn
+                - Fn::Select:
+                    - 3
+                    - Fn::Split:
+                        - '/'
+                        - Fn::Select:
+                            - 5
+                            - Fn::Split:
+                                - ':'
+                                - Fn::ImportValue: !Sub ${ComputeProjectName}-alb-arn
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: !Ref UnhealthyHostThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopic
+        - !Ref RemediationTriggerTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  # Separate topic dedicated to triggering the Lambda (keeps remediation
+  # decoupled from the human-facing alert topic / email subscription)
+  RemediationTriggerTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-remediation-trigger
+
+  RemediationSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref RemediationTriggerTopic
+      Protocol: lambda
+      Endpoint: !GetAtt RemediationLambda.Arn
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RemediationLambda
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref RemediationTriggerTopic
+
+  # ---------- Lambda ----------
+  RemediationLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-remediation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EcsRemediationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:UpdateService
+                  - ecs:DescribeServices
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  RemediationLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-remediation
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt RemediationLambdaRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          CLUSTER_NAME:
+            Fn::ImportValue: !Sub ${ComputeProjectName}-cluster-name
+          SERVICE_NAME:
+            Fn::ImportValue: !Sub ${ComputeProjectName}-service-name
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import os
+
+          ecs = boto3.client('ecs')
+
+          def handler(event, context):
+              cluster = os.environ['CLUSTER_NAME']
+              service = os.environ['SERVICE_NAME']
+
+              print(f"Remediation triggered for {service} in {cluster}")
+              print(f"Event: {json.dumps(event)}")
+
+              response = ecs.update_service(
+                  cluster=cluster,
+                  service=service,
+                  forceNewDeployment=True
+              )
+
+              print(f"Forced new deployment: {response['service']['deployments']}")
+
+              return {
+                  'statusCode': 200,
+                  'body': f"Forced redeployment of {service}"
+              }
+
+Outputs:
+  AlertTopicArn:
+    Value: !Ref AlertTopic
+    Export:
+      Name: !Sub ${ProjectName}-sns-topic-arn
+
+  RemediationLambdaArn:
+    Value: !GetAtt RemediationLambda.Arn
+    Export:
+      Name: !Sub ${ProjectName}-remediation-lambda-arn
+
+  AlarmName:
+    Value: !Ref UnhealthyHostAlarm
+    Export:
+      Name: !Sub ${ProjectName}-alarm-name
