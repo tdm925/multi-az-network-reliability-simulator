@@ -140,7 +140,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - ecs:UpdateService
-                  - ecs:DescribeServices
                 Resource: '*'
               - Effect: Allow
                 Action:
