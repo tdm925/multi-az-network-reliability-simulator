@@ -1,9 +1,9 @@
 # Multi-AZ Network Reliability Simulator
 
-*Learning project #1 in a series — AWS / SRE fundamentals.*
+*Learning project #1 in a series - AWS / SRE fundamentals.*
 
 A self-healing AWS network architecture that detects connectivity failures
-and automatically remediates them — built to practice SRE concepts
+and automatically remediates them - built to practice SRE concepts
 (detection → alerting → auto-remediation → observability) grounded in
 enterprise networking fundamentals (VPC design, security groups, load
 balancing, multi-AZ redundancy).
@@ -13,17 +13,17 @@ balancing, multi-AZ redundancy).
 First in a series of hands-on AWS learning projects, built right after
 passing SAA-C03 to go deeper through practice rather than more theory.
 Upcoming topics: ML on AWS, cloud security, migration scenarios. Same
-approach each time — build a real scenario, break it, watch it recover,
+approach each time - build a real scenario, break it, watch it recover,
 document what actually happened, bugs included.
 
 ## Who did what
 
-Built with AI assistance, not from scratch — being upfront about it. AI
+Built with AI assistance, not from scratch - being upfront about it. AI
 wrote the CloudFormation templates, the failure-injection script, and this
 README. I made the architecture calls (e.g. CloudFormation over Terraform,
 no prior Terraform experience), deployed everything by hand in the AWS
 Console, ran the failure test, read the logs, and caught a real bug myself
-(alarm never fired — traced to `Period: 30` vs. ALB's 1-minute metric
+(alarm never fired - traced to `Period: 30` vs. ALB's 1-minute metric
 granularity). Afterward I went through the templates line by line with AI
 until I could explain each part myself, checked against official AWS docs.
 This is how I'd use AI on the job: as an accelerant, not a black box.
@@ -41,22 +41,22 @@ history, Lambda logs, SNS notifications).
 ![Architecture diagram](screenshots/architecture-diagram.png)
 
 **Components:**
-- **Network layer** — VPC across 2 AZs, public/private subnets, IGW, NAT Gateway
-- **Compute layer** — ALB + ECS Fargate service (2 tasks, one per AZ)
-- **Monitoring layer** — CloudWatch Alarm on `UnHealthyHostCount`, dual SNS
+- **Network layer** - VPC across 2 AZs, public/private subnets, IGW, NAT Gateway
+- **Compute layer** - ALB + ECS Fargate service (2 tasks, one per AZ)
+- **Monitoring layer** - CloudWatch Alarm on `UnHealthyHostCount`, dual SNS
   topics (human alert + remediation trigger), Lambda that forces an ECS
   service redeployment when triggered
-- **Failure injection** — a Python/boto3 script that revokes the ECS
+- **Failure injection** - a Python/boto3 script that revokes the ECS
   security group's ingress rule to simulate a connectivity failure, then
   restores it automatically
 
 All infrastructure is defined as CloudFormation templates (nested via stack
-exports/imports) — no manual console configuration.
+exports/imports) - no manual console configuration.
 
 ## How the demo works
 
 1. Deploy the stacks (see below)
-2. Run `scripts/simulate_failure.py` — it revokes the ingress rule that lets
+2. Run `scripts/simulate_failure.py` - it revokes the ingress rule that lets
    the ALB reach the ECS tasks
 3. Watch the failure cascade in real time:
    - ALB marks targets unhealthy
@@ -122,15 +122,15 @@ aws cloudformation delete-stack --stack-name nrs-network
 ## Lessons learned / debugging notes
 
 - **CloudFormation cross-stack exports** are named after the `ProjectName`
-  parameter, not the stack name — a mismatch here caused an early
+  parameter, not the stack name - a mismatch here caused an early
   `ROLLBACK_IN_PROGRESS` failure.
 - **ALB metrics publish at 1-minute granularity.** An initial `Period: 30`
   on the CloudWatch Alarm silently broke the "2 consecutive breaching
-  datapoints" logic — every other period had no data, and
+  datapoints" logic - every other period had no data, and
   `TreatMissingData: notBreaching` meant the alarm never accumulated 2
   consecutive breaches. Fixed by aligning `Period` to 60s.
 - **ARN parsing for CloudWatch alarm dimensions** differs between Target
-  Group and Load Balancer ARNs — the LoadBalancer dimension requires
+  Group and Load Balancer ARNs - the LoadBalancer dimension requires
   stripping the `loadbalancer/` prefix that the raw ARN segment includes.
 
 ## Stack
