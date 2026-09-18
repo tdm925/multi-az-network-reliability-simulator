@@ -31,8 +31,7 @@ This is how I'd use AI on the job: as an accelerant, not a black box.
 
 ## Why this project
 
-20+ years in enterprise networking (Huawei / Cisco / Juniper), AWS SAA-C03
-certified. This project bridges that background with SRE practice: instead
+This project bridges that background with SRE practice: instead
 of just describing "highly available architecture," it **breaks itself on
 demand and proves it recovers**, with a full audit trail (CloudWatch Alarm
 history, Lambda logs, SNS notifications).
