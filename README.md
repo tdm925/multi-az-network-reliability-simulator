@@ -8,13 +8,17 @@ and automatically remediates them - built to practice SRE concepts
 enterprise networking fundamentals (VPC design, security groups, load
 balancing, multi-AZ redundancy).
 
+> **Terraform version:** this project was later rebuilt in Terraform, with a
+> side-by-side comparison of the two tools:
+> [multi-az-network-reliability-simulator-terraform](https://github.com/tdm925/multi-az-network-reliability-simulator-terraform)
+
 ## About this series
 
 This is the first in a series of hands-on AWS projects designed to
-prepare for the SAA-C03 exam by deepening knowledge through practice 
+prepare for the SAA-C03 exam by deepening knowledge through practice
 rather than dry theory. Future topics include AWS machine learning (ML),
-cloud security, and migration scenarios. The guiding principle remains 
-the same: create a real-world scenario, break the system, observe the 
+cloud security, and migration scenarios. The guiding principle remains
+the same: create a real-world scenario, break the system, observe the
 recovery process, and document everything—including any errors that arise.
 
 ## Who did what
@@ -139,7 +143,8 @@ AWS (VPC, ALB, ECS Fargate, CloudWatch, SNS, Lambda, Budgets) · CloudFormation 
 
 ## Roadmap
 
-- [ ] Rewrite infrastructure in Terraform
+- [x] Rewrite infrastructure in Terraform - see
+      [the Terraform version](https://github.com/tdm925/multi-az-network-reliability-simulator-terraform)
 - [ ] Multi-VPC topology via Transit Gateway (second layer of network
       complexity closer to real multi-region/multi-account setups)
 - [ ] CloudWatch Dashboard combining latency, healthy/unhealthy host count,
