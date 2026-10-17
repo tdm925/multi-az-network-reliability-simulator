@@ -14,12 +14,11 @@ balancing, multi-AZ redundancy).
 
 ## About this series
 
-This is the first in a series of hands-on AWS projects designed to
-prepare for the SAA-C03 exam by deepening knowledge through practice
-rather than dry theory. Future topics include AWS machine learning (ML),
-cloud security, and migration scenarios. The guiding principle remains
-the same: create a real-world scenario, break the system, observe the
-recovery process, and document everything—including any errors that arise.
+First in a series of hands-on AWS learning projects, built right after
+passing SAA-C03 to go deeper through practice rather than more theory.
+Upcoming topics: ML on AWS, cloud security, migration scenarios. Same
+approach each time - build a real scenario, break it, watch it recover,
+document what actually happened, bugs included.
 
 ## Who did what
 
@@ -35,7 +34,8 @@ This is how I'd use AI on the job: as an accelerant, not a black box.
 
 ## Why this project
 
-This project bridges that background with SRE practice: instead
+20+ years in enterprise networking (Huawei / Cisco / Extreme / Aruba), AWS SAA-C03
+certified. This project bridges that background with SRE practice: instead
 of just describing "highly available architecture," it **breaks itself on
 demand and proves it recovers**, with a full audit trail (CloudWatch Alarm
 history, Lambda logs, SNS notifications).
